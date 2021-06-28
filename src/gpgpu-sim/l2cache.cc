@@ -337,8 +337,9 @@ void memory_sub_partition::cache_cycle( unsigned cycle )//L2 緩存組計時並�
 {
     // L2 fill responses
     if( !m_config->m_L2_config.disabled()) {
-       if ( m_L2cache->access_ready() && !m_L2_icnt_queue->full() ) {
+       if ( m_L2cache->access_ready() && !m_L2_icnt_queue->full() ) {//是否有任何（接受的）必須等待內存的訪問現在準備好了？ && queue沒滿
            mem_fetch *mf = m_L2cache->next_access();//為在填充的 MSHR 條目中等待的內存請求生成回复，如 MSHR 描述中所述。 通過從 dram->L2 queue中彈出並調用，填充響應，即對由 L2 在讀取未命中時生成的內存請求的響應消息傳遞到 L2 緩存
+                                                    //next_access()彈出下一個就緒訪問（不包括“命中”的訪問）
            if(mf->get_access_type() != L2_WR_ALLOC_R){ // Don't pass write allocate read request back to upper level cache
 				mf->set_reply();
 				mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
@@ -356,8 +357,8 @@ void memory_sub_partition::cache_cycle( unsigned cycle )//L2 緩存組計時並�
         if ( !m_config->m_L2_config.disabled() && m_L2cache->waiting_for_fill(mf) ) {
             if (m_L2cache->fill_port_free()) {
                 mf->set_status(IN_PARTITION_L2_FILL_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
-                m_L2cache->fill(mf,gpu_sim_cycle+gpu_tot_sim_cycle);//由於讀取未命中而由 L2 生成的填充請求從 L2 的未命中隊列中彈出，並通過調用推送到 L2-> dram 隊列中
-                m_dram_L2_queue->pop();
+                m_L2cache->fill(mf,gpu_sim_cycle+gpu_tot_sim_cycle);//由於讀取未命中而由 L2 生成的填充請求從 L2 的未命中隊列中彈出
+                m_dram_L2_queue->pop();                             // 並通過調用推送到 L2-> dram 隊列中
             }
         } else if ( !m_L2_icnt_queue->full() ) {
             mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
@@ -368,7 +369,7 @@ void memory_sub_partition::cache_cycle( unsigned cycle )//L2 緩存組計時並�
 
     // prior L2 misses inserted into m_L2_dram_queue here
     if( !m_config->m_L2_config.disabled() )
-       m_L2cache->cycle();//退出 icnt->L2 隊列的內存請求的 L2 訪問由調用完成
+       m_L2cache->cycle();//退出 icnt->L2 queue的內存請求的 L2 訪問由調用完成
 
     // new L2 texture accesses and/or non-texture accesses
     if ( !m_L2_dram_queue->full() && !m_icnt_L2_queue->empty() ) {
@@ -420,8 +421,11 @@ void memory_sub_partition::cache_cycle( unsigned cycle )//L2 緩存組計時並�
     }
 
     // ROP delay queue
-    if( !m_rop.empty() && (cycle >= m_rop.front().ready_cycle) && !m_icnt_L2_queue->full() ) {
+    if( !m_rop.empty() && (cycle >= m_rop.front().ready_cycle) && !m_icnt_L2_queue->full() ) {//如果ROP delay queue不是空的 &&
+        //printf("龍m_rop.front().req:%d\n",m_rop.front().req->get_data_size());
         mem_fetch* mf = m_rop.front().req;
+        //printf("龍mf->get_data_size():%d\n",mf->get_data_size());
+        //printf("龍m_rop_size:%d\n",m_rop.size());
         m_rop.pop();
         m_icnt_L2_queue->push(mf);
         mf->set_status(IN_PARTITION_ICNT_TO_L2_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
@@ -541,7 +545,7 @@ bool memory_sub_partition::busy() const
     return !m_request_tracker.empty();
 }
 
-void memory_sub_partition::push( mem_fetch* req, unsigned long long cycle ) 
+void memory_sub_partition::push( mem_fetch* req, unsigned long long cycle ) //紋理訪問被直接推送到 icnt->L2 隊列，而非紋理訪問被推送到最小延遲 ROP 隊列。
 {
     if (req) {
         m_request_tracker.insert(req);

@@ -1042,7 +1042,7 @@ void shader_core_ctx::mem_instruction_stats(const warp_inst_t &inst)
             //printf("%d龍gpgpu_n_load_insn%d:  ",loadcount,m_stats->gpgpu_n_load_insn);
             //printf("%d龍inst.pc:%04x  ",loadcount,inst.pc);
             //printf("%d龍inst.warp_id():%d  ",loadcount,inst.warp_id());
-            printf("\n%d,inst.pc:%08x,inst.warp_id():%d,type:%d",loadcount,inst.pc,inst.warp_id(),inst.space.get_type());
+            //printf("\n%d,inst.pc:%08x,inst.warp_id():%d,type:%d",loadcount,inst.pc,inst.warp_id(),inst.space.get_type());
             //printf("\n",inst.get_addr);
             
         }
@@ -1209,7 +1209,7 @@ void gpgpu_sim::cycle()//$為所有架構提供clock，包括Memory Partition's 
             //TODO:先看這邊
             if (mf) {//$看有沒有空間(mf = 0)是真
                 unsigned response_size = (mf->get_is_write()?mf->get_ctrl_size():mf->size());//m_access.is_write()
-                printf("龍response_size:%u",response_size);
+                //printf("龍response_size:%u",response_size);
                 if ( ::icnt_has_buffer( m_shader_config->mem2device(i), response_size ) ) { //$獲取一個node number和packet size作為輸入發送，如果source node的input buffer有足夠空間則回傳true//(unsigned input, unsigned int size);
                     if (!mf->get_is_write()) 
                        mf->set_return_timestamp(gpu_sim_cycle+gpu_tot_sim_cycle);
@@ -1245,9 +1245,10 @@ void gpgpu_sim::cycle()//$為所有架構提供clock，包括Memory Partition's 
              gpu_stall_dramfull++;
           } else {
               mem_fetch* mf = (mem_fetch*) icnt_pop( m_shader_config->mem2device(i) );
-              m_memory_sub_partition[i]->push( mf, gpu_sim_cycle + gpu_tot_sim_cycle );
+              m_memory_sub_partition[i]->push( mf, gpu_sim_cycle + gpu_tot_sim_cycle );//把mf push到rop queue(到裡面會判斷是不是texture access)
           }
-          m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle+gpu_tot_sim_cycle);
+          m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle+gpu_tot_sim_cycle);//進到L2?//gpu_sim_cycle+gpu_tot_sim_cycle從一開始加，一直加
+          //printf("龍gpu_sim_cycle+gpu_tot_sim_cycle:%d\n",gpu_sim_cycle+gpu_tot_sim_cycle);
           m_memory_sub_partition[i]->accumulate_L2cache_stats(m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX]);
        }
    }

@@ -1341,18 +1341,20 @@ ldst_unit::process_cache_access( cache_t* cache,
 mem_stage_stall_type ldst_unit::process_memory_access_queue( cache_t *cache, warp_inst_t &inst )//這是一個通用函數，可從指令內部訪問隊列中提取訪問權限並將此請求發送到緩存。如果在這個週期中不能處理這個訪問（即它既不會丟失也不會命中緩存，這可能發生在各種系統隊列已滿或特定方式的所有行已被保留但尚未填充時），則訪問是下一個週期再次嘗試。
 {
     mem_stage_stall_type result = NO_RC_FAIL;
-    if( inst.accessq_empty() )
+    if( inst.accessq_empty() )//如果access queue為空result(就是stall)
         return result;
 
-    if( !cache->data_port_free() ) 
+    if( !cache->data_port_free() ) //查詢數據端口可用性
         return DATA_PORT_STALL; 
 
     //const mem_access_t &access = inst.accessq_back();
-    mem_fetch *mf = m_mf_allocator->alloc(inst,inst.accessq_back());
+    mem_fetch *mf = m_mf_allocator->alloc(inst,inst.accessq_back());//??
     std::list<cache_event> events;
     enum cache_request_status status = cache->access(mf->get_addr(),mf,gpu_sim_cycle+gpu_tot_sim_cycle,events);
     return process_cache_access( cache, mf->get_addr(), inst, events, mf, status );
 }
+
+
 
 bool ldst_unit::constant_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, mem_stage_access_type &fail_type)
 {
@@ -1398,12 +1400,17 @@ bool ldst_unit::memory_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
    mem_stage_stall_type stall_cond = NO_RC_FAIL;
    const mem_access_t &access = inst.accessq_back();
 
-   bool bypassL1D = false; 
+   bool bypassL1D = false;
+   //printf("龍inst.cache_op:%d\n",inst.cache_op);
+   //printf("龍inst.space.is_global():%d\n",inst.space.is_global());
+   if(m_L1D == NULL){
+   printf("龍m_L1D");
+   }
    if ( CACHE_GLOBAL == inst.cache_op || (m_L1D == NULL) ) {
        bypassL1D = true; 
    } else if (inst.space.is_global()) { // global memory access 
        // skip L1 cache if the option is enabled
-       if (m_core->get_config()->gmem_skip_L1D) 
+       if (m_core->get_config()->gmem_skip_L1D) //要打開才有(不重要?
            bypassL1D = true; 
    }
 
@@ -1411,8 +1418,10 @@ bool ldst_unit::memory_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
        // bypass L1 cache
        unsigned control_size = inst.is_store() ? WRITE_PACKET_SIZE : READ_PACKET_SIZE;
        unsigned size = access.get_size() + control_size;//***
-       if( m_icnt->full(size, inst.is_store() || inst.isatomic()) ) {
-           stall_cond = ICNT_RC_FAIL;
+       //printf("龍control_size:%d\n",control_size);
+       //printf("龍size:%d\n",size);
+       if( m_icnt->full(size, inst.is_store() || inst.isatomic()) ) {//full()return m_cluster->icnt_injection_buffer_full(size,write);
+           stall_cond = ICNT_RC_FAIL;                                //inst.isatomic()return return m_isatomic;
        } else {
            mem_fetch *mf = m_mf_allocator->alloc(inst,access);
            m_icnt->push(mf);
@@ -1427,7 +1436,10 @@ bool ldst_unit::memory_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
        }
    } else {//進去L1
        assert( CACHE_UNDEFINED != inst.cache_op );
-       stall_cond = process_memory_access_queue(m_L1D,inst);
+       stall_cond = process_memory_access_queue(m_L1D,inst);//這是一個通用函數，可從指令內部訪問隊列中提取訪問權限並將此請求發送到緩存。
+                                                            //如果在這個週期中不能處理這個訪問（即它既不會丟失也不會命中緩存，
+                                                            //這可能發生在各種系統隊列已滿或特定方式的所有行已被保留但尚未填充時），
+                                                            //則訪問是下一個週期再次嘗試。
    }
    if( !inst.accessq_empty() ) 
        stall_cond = COAL_STALL;

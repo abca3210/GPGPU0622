@@ -194,10 +194,10 @@ private:
    std::queue<rop_delay_t> m_rop;
 
    // these are various FIFOs between units within a memory partition
-   fifo_pipeline<mem_fetch> *m_icnt_L2_queue;
-   fifo_pipeline<mem_fetch> *m_L2_dram_queue;
-   fifo_pipeline<mem_fetch> *m_dram_L2_queue;
-   fifo_pipeline<mem_fetch> *m_L2_icnt_queue; // L2 cache hit response queue
+   fifo_pipeline<mem_fetch> *m_icnt_L2_queue;//icnt-to-L2
+   fifo_pipeline<mem_fetch> *m_L2_dram_queue;//L2-to-dram
+   fifo_pipeline<mem_fetch> *m_dram_L2_queue;//dram-to-L2
+   fifo_pipeline<mem_fetch> *m_L2_icnt_queue; // L2 cache hit response queue//L2-to-icnt
 
    class mem_fetch *L2dramout; 
    unsigned long long int wb_addr;
